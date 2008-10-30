@@ -4,7 +4,7 @@
 
 INSTALL:
 
-  curl http://github.com/defunkt/gist/tree/master%2Fgist.rb?raw=true > gist &&
+  curl http://github.com/elim/gist/tree/master%2Fgist.rb?raw=true > gist &&
   chmod 755 gist &&
   sudo mv gist /usr/local/bin/gist
 
@@ -62,10 +62,34 @@ private
   end
 
   def auth
+    auth_gitconfig || auth_pit || {}
+  end
+
+  def auth_gitconfig
     user  = `git config --global github.user`.strip
     token = `git config --global github.token`.strip
 
-    user.empty? ? {} : { :login => user, :token => token }
+    puts "user is #{user}"
+    puts "token is #{token}"
+
+    unless (user.empty? || token.empty?)
+      { :login => user, :token => token }
+    end
+  end
+
+  def auth_pit
+    if ENV['GIST_USE_PIT']
+      require 'rubygems'
+      require 'pit'
+
+      config = Pit.get("github.com", :require => {
+          "user"   => "your username in github",
+          "token"  => "your token in github",
+        })
+
+      config['user'] && config['token'] &&
+        {:login => config['user'], :token => config['token']}
+    end
   end
 end
 
