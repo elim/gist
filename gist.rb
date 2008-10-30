@@ -69,9 +69,6 @@ private
     user  = `git config --global github.user`.strip
     token = `git config --global github.token`.strip
 
-    puts "user is #{user}"
-    puts "token is #{token}"
-
     unless (user.empty? || token.empty?)
       { :login => user, :token => token }
     end
@@ -96,5 +93,6 @@ end
 if $stdin.tty?
   puts Gist.read(ARGV.first)
 else
+  ENV['GIST_USE_PIT'] = "1" if %w[-P --pit].include?(ARGV.first)
   puts Gist.write($stdin.read, %w[-p --private].include?(ARGV.first))
 end
