@@ -8,25 +8,30 @@ INSTALL:
   chmod 755 gist &&
   sudo mv gist /usr/local/bin/gist
 
-USE:
-
-  cat file.txt | gist
-  echo secret | gist -p  # or --private
-  gist 1234 > something.txt
-
 =end
 
 require 'open-uri'
 require 'net/http'
 
-module Gist
-  extend self
+class Gist
+  GIST_URL = 'http://gist.github.com/%s.txt'
+  attr_accessor(:private, :use_pit)
 
-  @@gist_url = 'http://gist.github.com/%s.txt'
+  def initialize(opts = {})
+    self.private   = opts[:private]
+    self.use_pit   = opts[:use_pit]
+  end
+
+  def run
+    if $stdin.tty?
+      puts read(ARGV.first)
+    else
+      puts write($stdin.read, @private)
+    end
+  end
 
   def read(gist_id)
-    return help if gist_id == '-h' || gist_id.nil? || gist_id[/help/]
-    open(@@gist_url % gist_id).read
+    open(GIST_URL % gist_id).read
   end
 
   def write(content, private_gist)
@@ -35,13 +40,10 @@ module Gist
     copy req['Location']
   end
 
-  def help
-    "USE:\n  " + File.read(__FILE__).match(/USE:(.+?)=end/m)[1].strip
-  end
-
-private
+  private
   def copy(content)
     case RUBY_PLATFORM
+
     when /darwin/
       return content if `which pbcopy`.strip == ''
       IO.popen('pbcopy', 'r+') { |clip| clip.puts content }
@@ -62,7 +64,11 @@ private
   end
 
   def auth
-    auth_gitconfig || auth_pit || {}
+    if @use_pit || ENV['GIST_USE_PIT']
+      auth_pit
+    else
+      auth_gitconfig
+    end || {}
   end
 
   def auth_gitconfig
@@ -75,24 +81,43 @@ private
   end
 
   def auth_pit
-    if ENV['GIST_USE_PIT']
-      require 'rubygems'
-      require 'pit'
+    require 'rubygems'
+    require 'pit'
 
-      config = Pit.get("github.com", :require => {
-          "user"   => "your username in github",
-          "token"  => "your token in github",
-        })
+    config = Pit.get("github.com", :require => {
+        "user"   => "your username in github",
+        "token"  => "your token in github",
+      })
 
-      config['user'] && config['token'] &&
-        {:login => config['user'], :token => config['token']}
-    end
+    config['user'] && config['token'] &&
+      {:login => config['user'], :token => config['token']}
   end
 end
 
-if $stdin.tty?
-  puts Gist.read(ARGV.first)
-else
-  ENV['GIST_USE_PIT'] = "1" if %w[-P --pit].include?(ARGV.first)
-  puts Gist.write($stdin.read, %w[-p --private].include?(ARGV.first))
+if $0 == __FILE__
+  require 'optparse'
+  opts = {:command => true}
+
+  OptionParser.new do |parser|
+    parser.instance_eval do
+      self.banner = <<EOF
+USE:
+  cat file.txt | gist
+  echo secret | gist -p  # or --private
+  gist 1234 > something.txt
+
+EOF
+      on('-p', '--private', 'private post.') do
+        opts[:private] = true
+      end
+
+      on('-P', '--pit', 'using Pit.') do
+        opts[:use_pit]  = true
+      end
+
+      parse(ARGV)
+    end
+  end
+
+  Gist.new(opts).run
 end
