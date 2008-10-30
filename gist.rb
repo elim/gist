@@ -3,15 +3,17 @@
 
 INSTALL:
 
-  curl http://github.com/defunkt/gist/tree/master%2Fgist.rb?raw=true > gist &&
+  curl http://github.com/elim/gist/tree/master%2Fgist.rb?raw=true > gist &&
   chmod 755 gist &&
   sudo mv gist /usr/local/bin/gist
 
 USE:
 
-  cat file.txt | gist
-  echo secret | gist -p  # or --private
-  gist 1234 > something.txt
+  write:
+    % cat file.txt | gist
+
+  read:
+    % gist 1234
 
 =end
 
@@ -77,9 +79,6 @@ class Gist
 end
 
 if $0 == __FILE__
-  require 'optparse'
-  opts = {}
-
   def executable_find(progname)
     prog = %x(which #{progname}).strip
     prog unless prog.empty?
@@ -101,16 +100,14 @@ if $0 == __FILE__
     end
   end
 
+  require 'optparse'
+  opts = {}
+
   OptionParser.new do |parser|
     parser.instance_eval do
-      self.banner = <<EOF
-write:
-  % cat file.txt | gist
+      self.banner =
+        "USE:\n  " + File.read(__FILE__).match(/USE:(.+?)=end/m)[1].lstrip
 
-read:
-  % gist 1234
-
-EOF
       on('-p', '--private', 'private post.') do
         opts[:private] = true
       end
@@ -119,7 +116,7 @@ EOF
         opts[:account_store] = :none
       end
 
-      on('-P', '--pit', 'using Pit.') do
+      on('-P', '--pit', 'using pit.') do
         opts[:account_store]  = :pit
       end
 
