@@ -74,7 +74,7 @@ class Gist
       })
 
     config['user'] && config['token'] &&
-      {:login => config['user'], :token => config['token']}
+      { :login => config['user'], :token => config['token'] }
   end
 end
 
